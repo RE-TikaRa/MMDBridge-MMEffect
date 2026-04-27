@@ -1,0 +1,31 @@
+#pragma code_page(65001)
+#include <windows.h>
+#include <commctrl.h>
+#include <richedit.h>
+#include "resource.h"
+
+//
+// Dialog resources
+//
+LANGUAGE 0, SUBLANG_NEUTRAL
+IDD_DIALOG1 DIALOG 0, 0, 221, 215
+STYLE DS_3DLOOK | DS_CENTER | DS_MODALFRAME | DS_SHELLFONT | WS_CAPTION | WS_VISIBLE | WS_POPUP | WS_SYSMENU
+CAPTION "MMDBridge - 插件设置"
+FONT 8, "Ms Shell Dlg"
+{
+    DEFPUSHBUTTON   "OK", 1, 102, 186, 50, 15
+    PUSHBUTTON      "取消", 2, 159, 186, 50, 15
+    LTEXT           "使用脚本", IDC_STATIC_SCRIPT, 12, 13, 52, 8, SS_LEFT
+    LTEXT           "脚本调用设置", IDC_STATIC_CALL_SETTING, 10, 55, 73, 8, SS_LEFT
+    COMBOBOX        1101, 10, 31, 143, 100, CBS_DROPDOWN | CBS_HASSTRINGS
+    COMBOBOX        1102, 10, 68, 200, 68, CBS_DROPDOWN | CBS_HASSTRINGS
+    PUSHBUTTON      "重新扫描", 1103, 159, 31, 50, 15
+    LTEXT           "输出目标帧", IDC_STATIC_FRAME_RANGE, 34, 92, 52, 8, SS_LEFT
+    EDITTEXT        1104, 46, 108, 50, 15, ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        1105, 116, 108, 50, 15, ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "～", IDC_STATIC_FRAME_SEPARATOR, 104, 114, 8, 8, SS_LEFT
+    LTEXT           "帧率（请与 AVI 输出设置保持一致）", IDC_STATIC_FPS_HINT, 35, 138, 145, 8, SS_LEFT
+    EDITTEXT        1108, 83, 154, 50, 15, ES_AUTOHSCROLL
+    LTEXT           "fps", IDC_STATIC_FPS, 139, 158, 10, 8, SS_LEFT
+    PUSHBUTTON      "詳細設定", 1000, 159, 11, 50, 15, NOT WS_VISIBLE
+}
