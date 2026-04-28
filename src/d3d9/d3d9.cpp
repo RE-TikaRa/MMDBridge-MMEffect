@@ -1259,11 +1259,315 @@ static HRESULT WINAPI endScene(IDirect3DDevice9 *device)
 
 }
 
+namespace
+{
+	static const UINT kMMEListViewId = 1003;
+	static const UINT kMMETabControlId = 1002;
+	static const UINT kMMEMenuOpenObjectFolder = 49031;
+	static const UINT kMMEMenuOpenEffectFolder = 49032;
+
+	struct MMESelectionInfo
+	{
+		std::wstring object_text;
+		std::wstring effect_text;
+		std::wstring object_path;
+		std::wstring effect_path;
+	};
+
+	struct ObjectPathCandidate
+	{
+		std::wstring path;
+		std::wstring file_name;
+		std::wstring stem;
+	};
+
+	static std::wstring acp_to_wstring(const char* src)
+	{
+		if (!src || !*src) return std::wstring();
+		const int size = ::MultiByteToWideChar(CP_ACP, 0, src, -1, NULL, 0);
+		if (size <= 0) return std::wstring();
+		std::vector<wchar_t> buffer(size);
+		::MultiByteToWideChar(CP_ACP, 0, src, -1, &buffer[0], size);
+		return std::wstring(&buffer[0]);
+	}
+
+	static std::wstring trim_copy(const std::wstring& src)
+	{
+		const std::wstring spaces(L" \t\r\n");
+		const size_t begin = src.find_first_not_of(spaces);
+		if (begin == std::wstring::npos) return std::wstring();
+		const size_t end = src.find_last_not_of(spaces);
+		return src.substr(begin, end - begin + 1);
+	}
+
+	static std::wstring normalize_display_text(const std::wstring& src)
+	{
+		std::wstring text = trim_copy(src);
+		if (text.size() >= 2)
+		{
+			const wchar_t first = text.front();
+			const wchar_t last = text.back();
+			if ((first == L'"' && last == L'"') || (first == L'\'' && last == L'\''))
+			{
+				text = trim_copy(text.substr(1, text.size() - 2));
+			}
+		}
+		return text;
+	}
+
+	static bool path_exists(const std::wstring& path)
+	{
+		if (path.empty()) return false;
+		return ::GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
+	}
+
+	static bool is_directory_path(const std::wstring& path)
+	{
+		if (path.empty()) return false;
+		const DWORD attr = ::GetFileAttributesW(path.c_str());
+		return attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
+	}
+
+	static std::wstring path_file_name_copy(const std::wstring& path)
+	{
+		if (path.empty()) return std::wstring();
+		return std::wstring(::PathFindFileNameW(path.c_str()));
+	}
+
+	static std::wstring path_stem_copy(const std::wstring& path)
+	{
+		const std::wstring file_name = path_file_name_copy(path);
+		const size_t dot = file_name.find_last_of(L'.');
+		return dot == std::wstring::npos ? file_name : file_name.substr(0, dot);
+	}
+
+	static std::wstring directory_from_path(const std::wstring& path)
+	{
+		if (path.empty()) return std::wstring();
+		std::vector<wchar_t> buffer(path.begin(), path.end());
+		buffer.push_back(L'\0');
+		if (!::PathRemoveFileSpecW(&buffer[0])) return std::wstring();
+		return std::wstring(&buffer[0]);
+	}
+
+	static std::wstring combine_path(const std::wstring& base, const std::wstring& leaf)
+	{
+		if (base.empty()) return leaf;
+		wchar_t buffer[MAX_PATH * 4] = {};
+		if (!::PathCombineW(buffer, base.c_str(), leaf.c_str())) return std::wstring();
+		return std::wstring(buffer);
+	}
+
+	static std::wstring resolve_runtime_path(const std::wstring& raw_path)
+	{
+		const std::wstring normalized = normalize_display_text(raw_path);
+		if (normalized.empty()) return std::wstring();
+		if (!::PathIsRelativeW(normalized.c_str()))
+		{
+			return path_exists(normalized) ? normalized : std::wstring();
+		}
+		const std::wstring combined = combine_path(BridgeParameter::instance().base_path, normalized);
+		return path_exists(combined) ? combined : std::wstring();
+	}
+
+	static bool is_special_effect_name(const std::wstring& text)
+	{
+		const std::wstring normalized = normalize_display_text(text);
+		return normalized.empty()
+			|| ::_wcsicmp(normalized.c_str(), L"(none)") == 0
+			|| ::_wcsicmp(normalized.c_str(), L"(hide)") == 0
+			|| ::_wcsicmp(normalized.c_str(), L"(default)") == 0
+			|| ::_wcsicmp(normalized.c_str(), L"default") == 0;
+	}
+
+	static std::string get_listview_item_text(HWND list_view, int item, int sub_item)
+	{
+		char buffer[1024] = {};
+		LVITEMA lvitem = {};
+		lvitem.iSubItem = sub_item;
+		lvitem.cchTextMax = sizeof(buffer);
+		lvitem.pszText = buffer;
+		::SendMessageA(list_view, LVM_GETITEMTEXTA, static_cast<WPARAM>(item), reinterpret_cast<LPARAM>(&lvitem));
+		return std::string(buffer);
+	}
+
+	static std::wstring get_listview_item_text_w(HWND list_view, int item, int sub_item)
+	{
+		return acp_to_wstring(get_listview_item_text(list_view, item, sub_item).c_str());
+	}
+
+	static std::vector<ObjectPathCandidate> collect_object_path_candidates()
+	{
+		std::vector<ObjectPathCandidate> candidates;
+		for (int i = 0; i < ExpGetPmdNum(); ++i)
+		{
+			const std::wstring path = resolve_runtime_path(acp_to_wstring(ExpGetPmdFilename(i)));
+			if (!path.empty())
+			{
+				ObjectPathCandidate candidate = {};
+				candidate.path = path;
+				candidate.file_name = path_file_name_copy(path);
+				candidate.stem = path_stem_copy(path);
+				candidates.push_back(candidate);
+			}
+		}
+		for (int i = 0; i < ExpGetAcsNum(); ++i)
+		{
+			const std::wstring path = resolve_runtime_path(acp_to_wstring(ExpGetAcsFilename(i)));
+			if (!path.empty())
+			{
+				ObjectPathCandidate candidate = {};
+				candidate.path = path;
+				candidate.file_name = path_file_name_copy(path);
+				candidate.stem = path_stem_copy(path);
+				candidates.push_back(candidate);
+			}
+		}
+		return candidates;
+	}
+
+	static int score_object_path_candidate(const std::wstring& object_text, const ObjectPathCandidate& candidate)
+	{
+		if (object_text.empty()) return 0;
+		if (::PathIsRelativeW(object_text.c_str()) == FALSE && ::_wcsicmp(object_text.c_str(), candidate.path.c_str()) == 0) return 1000;
+		if (!candidate.file_name.empty() && ::_wcsicmp(object_text.c_str(), candidate.file_name.c_str()) == 0) return 900;
+		if (!candidate.stem.empty() && ::_wcsicmp(object_text.c_str(), candidate.stem.c_str()) == 0) return 850;
+		if (!candidate.file_name.empty() && object_text.find(candidate.file_name) != std::wstring::npos) return 700 + static_cast<int>(candidate.file_name.size());
+		if (!candidate.stem.empty() && object_text.find(candidate.stem) != std::wstring::npos) return 600 + static_cast<int>(candidate.stem.size());
+		return 0;
+	}
+
+	static std::wstring resolve_object_path_from_text(const std::wstring& object_text)
+	{
+		const std::wstring normalized = normalize_display_text(object_text);
+		if (normalized.empty()) return std::wstring();
+
+		const std::wstring direct_path = resolve_runtime_path(normalized);
+		if (!direct_path.empty()) return direct_path;
+
+		const std::vector<ObjectPathCandidate> candidates = collect_object_path_candidates();
+		int best_score = 0;
+		std::wstring best_path;
+		for (size_t i = 0; i < candidates.size(); ++i)
+		{
+			const int score = score_object_path_candidate(normalized, candidates[i]);
+			if (score > best_score)
+			{
+				best_score = score;
+				best_path = candidates[i].path;
+			}
+		}
+		return best_path;
+	}
+
+	static std::wstring resolve_effect_path_from_text(const std::wstring& effect_text, const std::wstring& object_path)
+	{
+		const std::wstring normalized = normalize_display_text(effect_text);
+		if (is_special_effect_name(normalized)) return std::wstring();
+
+		const std::wstring direct_path = resolve_runtime_path(normalized);
+		if (!direct_path.empty()) return direct_path;
+
+		if (!object_path.empty())
+		{
+			const std::wstring object_dir = directory_from_path(object_path);
+			const std::wstring object_relative = combine_path(object_dir, normalized);
+			if (path_exists(object_relative)) return object_relative;
+		}
+
+		if (normalized.find(L'.') == std::wstring::npos)
+		{
+			return resolve_effect_path_from_text(normalized + L".fx", object_path);
+		}
+
+		return std::wstring();
+	}
+
+	static bool open_path_in_explorer(const std::wstring& path)
+	{
+		if (path.empty() || !path_exists(path)) return false;
+		std::wstring command = is_directory_path(path)
+			? L"explorer.exe \"" + path + L"\""
+			: L"explorer.exe /select,\"" + path + L"\"";
+		STARTUPINFOW si = {};
+		si.cb = sizeof(si);
+		PROCESS_INFORMATION pi = {};
+		if (!::CreateProcessW(NULL, &command[0], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+		{
+			return false;
+		}
+		::CloseHandle(pi.hThread);
+		::CloseHandle(pi.hProcess);
+		return true;
+	}
+
+	static MMESelectionInfo get_mme_selection_info(HWND dialog)
+	{
+		MMESelectionInfo info = {};
+		HWND list_view = ::GetDlgItem(dialog, kMMEListViewId);
+		if (!list_view) return info;
+
+		int item = ListView_GetNextItem(list_view, -1, LVNI_SELECTED);
+		if (item < 0)
+		{
+			item = ListView_GetNextItem(list_view, -1, LVNI_FOCUSED);
+		}
+		if (item < 0) return info;
+
+		info.object_text = normalize_display_text(get_listview_item_text_w(list_view, item, 0));
+		info.effect_text = normalize_display_text(get_listview_item_text_w(list_view, item, 1));
+		info.object_path = resolve_object_path_from_text(info.object_text);
+		info.effect_path = resolve_effect_path_from_text(info.effect_text, info.object_path);
+		return info;
+	}
+
+	static void update_mme_folder_menu_state(HMENU menu, HWND dialog)
+	{
+		if (!menu) return;
+		if (::GetMenuState(menu, kMMEMenuOpenObjectFolder, MF_BYCOMMAND) == 0xFFFFFFFF
+			&& ::GetMenuState(menu, kMMEMenuOpenEffectFolder, MF_BYCOMMAND) == 0xFFFFFFFF)
+		{
+			return;
+		}
+		const MMESelectionInfo info = get_mme_selection_info(dialog);
+		::EnableMenuItem(menu, kMMEMenuOpenObjectFolder, MF_BYCOMMAND | (info.object_path.empty() ? MF_GRAYED : MF_ENABLED));
+		::EnableMenuItem(menu, kMMEMenuOpenEffectFolder, MF_BYCOMMAND | (info.effect_path.empty() ? MF_GRAYED : MF_ENABLED));
+	}
+
+	static void ensure_mme_folder_menu_items(HMENU dialog_menu)
+	{
+		if (!dialog_menu) return;
+		HMENU edit_menu = ::GetSubMenu(dialog_menu, 1);
+		if (!edit_menu) return;
+		if (::GetMenuState(edit_menu, kMMEMenuOpenObjectFolder, MF_BYCOMMAND) != 0xFFFFFFFF) return;
+
+		MENUITEMINFOA item = {};
+		item.cbSize = sizeof(item);
+		item.fMask = MIIM_FTYPE;
+		item.fType = MFT_SEPARATOR;
+		::InsertMenuItemA(edit_menu, ::GetMenuItemCount(edit_menu), TRUE, &item);
+
+		ZeroMemory(&item, sizeof(item));
+		item.cbSize = sizeof(item);
+		item.fMask = MIIM_ID | MIIM_FTYPE | MIIM_STRING;
+		item.fType = MFT_STRING;
+		item.wID = kMMEMenuOpenObjectFolder;
+		item.dwTypeData = const_cast<LPSTR>("Open Object Folder");
+		::InsertMenuItemA(edit_menu, ::GetMenuItemCount(edit_menu), TRUE, &item);
+
+		item.wID = kMMEMenuOpenEffectFolder;
+		item.dwTypeData = const_cast<LPSTR>("Open Effect Folder");
+		::InsertMenuItemA(edit_menu, ::GetMenuItemCount(edit_menu), TRUE, &item);
+	}
+}
+
 HWND g_hWnd=NULL;	//ウィンドウハンドル
 HMENU g_hMenu=NULL;	//メニュー
 HMENU g_hBridgeMenu=NULL;
 HMENU g_hLanguageMenu=NULL;
 HWND g_hFrame = NULL; //フレーム数
+HWND g_hMMEffectDialog = NULL;
+LONG_PTR g_originalMMEffectDialogWndProc = NULL;
 
 
 static void GetFrame(HWND hWnd)
@@ -1318,6 +1622,32 @@ static BOOL CALLBACK enumWindowsProc(HWND hWnd,LPARAM lParam)
 	}
 	return TRUE;	//continue
 }
+
+static BOOL CALLBACK enumMMEffectDialogProc(HWND hWnd, LPARAM lParam)
+{
+	DWORD process_id = 0;
+	::GetWindowThreadProcessId(hWnd, &process_id);
+	if (process_id != ::GetCurrentProcessId())
+	{
+		return TRUE;
+	}
+
+	char class_name[256] = {};
+	::GetClassNameA(hWnd, class_name, sizeof(class_name) / sizeof(class_name[0]));
+	if (std::string(class_name) != "#32770")
+	{
+		return TRUE;
+	}
+
+	if (::GetDlgItem(hWnd, kMMEListViewId) && ::GetDlgItem(hWnd, kMMETabControlId) && ::GetMenu(hWnd))
+	{
+		g_hMMEffectDialog = hWnd;
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static LRESULT CALLBACK mm_effect_dialog_wnd_proc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp);
 
 static void setMyMenu()
 {
@@ -1377,6 +1707,31 @@ static void setMyMenu()
 			MF_BYCOMMAND);
 		SetMenu(g_hWnd, hmenu);
 		g_hMenu = hmenu;
+	}
+}
+
+static void hookMMEffectDialog()
+{
+	if (g_hMMEffectDialog && !::IsWindow(g_hMMEffectDialog))
+	{
+		g_hMMEffectDialog = NULL;
+		g_originalMMEffectDialogWndProc = NULL;
+	}
+
+	if (!g_hMMEffectDialog)
+	{
+		::EnumWindows(enumMMEffectDialogProc, 0);
+	}
+	if (!g_hMMEffectDialog) return;
+
+	HMENU dialog_menu = ::GetMenu(g_hMMEffectDialog);
+	ensure_mme_folder_menu_items(dialog_menu);
+	update_mme_folder_menu_state(::GetSubMenu(dialog_menu, 1), g_hMMEffectDialog);
+
+	if (!g_originalMMEffectDialogWndProc)
+	{
+		g_originalMMEffectDialogWndProc = ::GetWindowLongPtr(g_hMMEffectDialog, GWLP_WNDPROC);
+		::SetWindowLongPtr(g_hMMEffectDialog, GWLP_WNDPROC, reinterpret_cast<_LONG_PTR>(mm_effect_dialog_wnd_proc));
 	}
 }
 
@@ -1501,6 +1856,50 @@ static LRESULT CALLBACK overrideWndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM l
 	return CallWindowProc( (WNDPROC)originalWndProc, hWnd, msg, wp, lp );
 }
 
+static LRESULT CALLBACK mm_effect_dialog_wnd_proc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+	const LONG_PTR original_wnd_proc = g_originalMMEffectDialogWndProc;
+	switch (msg)
+	{
+	case WM_INITMENUPOPUP:
+		update_mme_folder_menu_state(reinterpret_cast<HMENU>(wp), hWnd);
+		break;
+	case WM_COMMAND:
+		switch (LOWORD(wp))
+		{
+		case kMMEMenuOpenObjectFolder:
+		{
+			const MMESelectionInfo info = get_mme_selection_info(hWnd);
+			if (!info.object_path.empty())
+			{
+				open_path_in_explorer(info.object_path);
+			}
+			return 0;
+		}
+		case kMMEMenuOpenEffectFolder:
+		{
+			const MMESelectionInfo info = get_mme_selection_info(hWnd);
+			if (!info.effect_path.empty())
+			{
+				open_path_in_explorer(info.effect_path);
+			}
+			return 0;
+		}
+		}
+		break;
+	case WM_NCDESTROY:
+		if (g_hMMEffectDialog == hWnd)
+		{
+			g_hMMEffectDialog = NULL;
+			g_originalMMEffectDialogWndProc = NULL;
+		}
+		break;
+	}
+	return original_wnd_proc
+		? CallWindowProc(reinterpret_cast<WNDPROC>(original_wnd_proc), hWnd, msg, wp, lp)
+		: DefWindowProc(hWnd, msg, wp, lp);
+}
+
 static INT_PTR CALLBACK DialogProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	const BridgeParameter& parameter = BridgeParameter::instance();
@@ -1588,6 +1987,7 @@ static void overrideGLWindow()
 		originalWndProc = GetWindowLongPtr(g_hWnd,GWLP_WNDPROC);
 		SetWindowLongPtr(g_hWnd,GWLP_WNDPROC,(_LONG_PTR)overrideWndProc);
 	}
+	hookMMEffectDialog();
 }
 
 

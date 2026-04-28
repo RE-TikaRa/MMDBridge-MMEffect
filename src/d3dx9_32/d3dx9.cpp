@@ -3510,18 +3510,24 @@ extern "C" {
 
 		original_SetFloatArray = (*ppEffect)->lpVtbl->SetFloatArray;
 		//original_SetTexture = (*ppEffect)->lpVtbl->SetTexture;
-		//original_GetParameter = 	(*ppEffect)->lpVtbl->GetParameter;
+		//original_GetParameter = (*ppEffect)->lpVtbl->GetParameter;
 
-		// 書き込み属性付与
-		DWORD old_protect;
-		VirtualProtect(reinterpret_cast<void *>((*ppEffect)->lpVtbl), sizeof((*ppEffect)->lpVtbl), PAGE_EXECUTE_WRITECOPY, &old_protect);
+		DWORD protect_flags = 0;
+		::VirtualProtect(
+			reinterpret_cast<void*>((*ppEffect)->lpVtbl),
+			sizeof((*ppEffect)->lpVtbl),
+			PAGE_EXECUTE_WRITECOPY,
+			&protect_flags);
 
 		(*ppEffect)->lpVtbl->SetFloatArray = setFloatArray;
 		//(*ppEffect)->lpVtbl->SetTexture = setTexture;
 		//(*ppEffect)->lpVtbl->GetParameter = getParameter;
 
-		// 書き込み属性元に戻す
-		VirtualProtect(reinterpret_cast<void *>((*ppEffect)->lpVtbl), sizeof((*ppEffect)->lpVtbl), old_protect, &old_protect);
+		::VirtualProtect(
+			reinterpret_cast<void*>((*ppEffect)->lpVtbl),
+			sizeof((*ppEffect)->lpVtbl),
+			protect_flags,
+			&protect_flags);
 
 		return res;
 	}

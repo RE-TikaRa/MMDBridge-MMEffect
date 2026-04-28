@@ -127,7 +127,7 @@
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Include;$(DXSDK_DIR)\Include;$(SolutionDir)/libs/python/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Include;$(SolutionDir)libs/dxsdk/include;$(DXSDK_DIR)\Include;$(SolutionDir)/libs/python/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;BOOST_PYTHON_STATIC_LIB;NDEBUG;_WINDOWS;D3DX9_EXPORTS;HOOK_EXPORTS;WITH_ALEMBIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -150,7 +150,7 @@
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Include;$(DXSDK_DIR)\Include;$(SolutionDir)/libs/python/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Include;$(SolutionDir)libs/dxsdk/include;$(DXSDK_DIR)\Include;$(SolutionDir)/libs/python/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;BOOST_PYTHON_STATIC_LIB;NDEBUG;_WINDOWS;D3DX9_EXPORTS;HOOK_EXPORTS;WITH_ALEMBIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -162,7 +162,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(DXSDK_DIR)\Lib\x64;$(SolutionDir)libs/python/$(Platform)/$(Configuration)/;$(SolutionDir)libs/boost/$(Platform)/$(Configuration)/;$(SolutionDir)libs/alembic/$(Platform)/$(Configuration)/;$(SolutionDir)libs/hdf5/$(Platform)/$(Configuration)/;$(SolutionDir)libs/ilmbase2/$(Platform)/$(Configuration)/;$(SolutionDir)libs/zlib/$(Platform)/$(Configuration)/;$(SolutionDir)/libs/umio/$(Platform)/$(Configuration)/;$(SolutionDir)/libs/mmd/$(Platform)/;$(SolutionDir)/Release/$(Platform)/;$(SolutionDir)/src/d3dx9_32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)libs/dxsdk/$(Platform)/;$(DXSDK_DIR)\Lib\x64;$(SolutionDir)libs/python/$(Platform)/$(Configuration)/;$(SolutionDir)libs/boost/$(Platform)/$(Configuration)/;$(SolutionDir)libs/alembic/$(Platform)/$(Configuration)/;$(SolutionDir)libs/hdf5/$(Platform)/$(Configuration)/;$(SolutionDir)libs/ilmbase2/$(Platform)/$(Configuration)/;$(SolutionDir)libs/zlib/$(Platform)/$(Configuration)/;$(SolutionDir)/libs/umio/$(Platform)/$(Configuration)/;$(SolutionDir)/libs/mmd/$(Platform)/;$(SolutionDir)/Release/$(Platform)/;$(SolutionDir)/src/d3dx9_32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>$(SolutionDir)/src/$(ProjectName)/hook64.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
