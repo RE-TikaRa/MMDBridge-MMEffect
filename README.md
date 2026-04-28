@@ -12,9 +12,7 @@ MMDBridge 是一个面向 **MikuMikuDance 64 位版** 的 D3D9 桥接插件。
 - 已兼容 `MMEffect_x64_v037`
 - 已切换到 **Python 3.13.3** 路线
 
-当前推荐安装包：
-
-- `dist/MMDBridge_MMEffect_x64_v037_python313_fixed.zip`
+当前仓库未附带现成 `dist/` 安装包。
 
 ## 功能概览
 
@@ -92,9 +90,12 @@ build_vs2022_64/mmdbridge.sln
 
 ### 推荐方式
 
-直接使用已经整理好的安装包：
+当前仓库没有附带现成安装包，需要自行编译并组装文件。
 
-- `dist/MMDBridge_MMEffect_x64_v037_python313_fixed.zip`
+仓库内现成资源主要包括：
+
+- `Release/x64/`：x64 版脚本与附属资源
+- `MMEffect_x64_v037/MMEffect_x64_v037/`：MMEffect 原版文件参考
 
 ### 安装目标目录
 
@@ -102,14 +103,13 @@ build_vs2022_64/mmdbridge.sln
 
 - `C:\MikuMikuDance V10th - CHS`
 
-### 解压后目录中至少应存在
+### 组装后目录中至少应存在
 
 ```text
 C:\MikuMikuDance V10th - CHS
   d3d9.dll
   d3d9_mme.dll
-  d3dx9_32.dll
-  D3DX9_43.dll
+  d3dx9_43.dll
   python313.dll
   MMEffect.dll
   MMHack.dll
@@ -155,6 +155,16 @@ Data\
 4. MMDBridge 设置窗口中的“使用脚本”下拉框是否能扫描出脚本
 
 如果以上都正常，说明安装基本成功。
+
+## 当前仓库附带的 x64 脚本
+
+`Release/x64/` 当前主要包含：
+
+- Alembic 导出脚本
+- OBJ 导出脚本
+- 若干测试 / 示例脚本
+
+当前仓库中未附带 x64 版 `mmdbridge_pmx.py` 与 `mmdbridge_vmd.py`。
 
 ## 常见问题
 

@@ -11,7 +11,6 @@
 /project/d3d9/x64
 /project/d3dx9/x64
 /project/umbase/x64
-/dist
 /Release/x64/*.dll
 /Release/x64/*.exp
 /Release/x64/*.lib
@@ -24,3 +23,6 @@
 /x64
 /.omx
 /MMEffect_x64_v037
+/MMDBridge_071_Alembic_64bit
+/MMEffect_x64_v037_ori
+/build_vs2022_64_fresh
