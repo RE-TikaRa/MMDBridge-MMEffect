@@ -64,7 +64,7 @@
 				AdditionalDependencies="MMDExport.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="&quot;$(SolutionDir)/libs/mmd/lib&quot;"
-				ModuleDefinitionFile="$(SolutionDir)/src/$(ProjectName)/hook.def"
+				ModuleDefinitionFile="$(SolutionDir)/hook.def"
 				GenerateDebugInformation="true"
 				SubSystem="2"
 				TargetMachine="1"

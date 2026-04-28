@@ -15,19 +15,8 @@
 #include <d3dx9shape.h>
 #include <d3dx9tex.h>
 #include <d3dx9effect.h>
-
-#ifdef CINTERFACE
-#define UM_RESTORE_CINTERFACE
-#undef CINTERFACE
-#endif
-
 #include <d3dx9core.h>
 #include <d3dx9xof.h>
-
-#ifdef UM_RESTORE_CINTERFACE
-#define CINTERFACE
-#undef UM_RESTORE_CINTERFACE
-#endif
 
 extern "C" {
     void UMSetFlag(int flag);
