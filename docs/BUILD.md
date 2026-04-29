@@ -68,9 +68,9 @@
 
 ### 5. pybind11
 
-当前工程使用：
+当前仓库已内置：
 
-- `.deps/vcpkg/installed/x64-windows/include/pybind11`
+- `libs/pybind11/include/pybind11`
 
 ---
 
@@ -137,7 +137,9 @@ Release/x64/d3d9_.dll
 
 ### 缺少 `pybind11/*.h`
 
-说明 `.deps/vcpkg/installed/x64-windows/include` 不存在或未初始化。
+优先检查：
+
+- `libs/pybind11/include/pybind11`
 
 ### 缺少 `MMDExport.h` / `MMDExport.lib`
 
