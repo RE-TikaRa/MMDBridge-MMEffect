@@ -2,18 +2,14 @@ MMDBridge + MMEffect full bridge package
 
 Place all files beside MikuMikuDance.exe.
 
-This package keeps:
-- MMDBridge bridge/runtime layer
-- MMEffect original backend chain
-- Python 3.13 runtime
-- export scripts
+This package includes:
+- bridge front-end d3d9.dll
+- original MME backend as d3d9_mme.dll
+- rebuilt d3dx9_43.dll
+- python313.dll
+- MMEffect runtime files
+- MMDBridge export scripts
 
-Important:
-- MMDBridge scans only *.py files placed in the same directory as MikuMikuDance.exe.
-- Scripts inside subfolders will not appear in the script dropdown.
-
-Current enhancements:
-- MMDBridge settings window Chinese / source-language switch
-- MME Effect Mapping window right-click adds:
-  - Open Object Folder
-  - Open Effect Folder
+Notes:
+- MMDBridge only scans *.py files placed beside MikuMikuDance.exe.
+- This package includes the current MME mapping window enhancements.

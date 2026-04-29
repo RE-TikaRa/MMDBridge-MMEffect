@@ -1,0 +1,85 @@
+name: 发布 Release
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'dist/*.zip'
+      - '.github/workflows/release.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 生成发布日期信息
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_title="$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S CST')"
+          release_tag="release-$(TZ=Asia/Shanghai date '+%Y%m%d-%H%M%S')"
+          echo "title=$release_title" >> "$GITHUB_OUTPUT"
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+
+      - name: 检查 gh CLI 与发布包
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh --version
+          shopt -s nullglob
+          assets=(dist/*.zip)
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo 'dist 目录下没有 zip 包，终止发布。' >&2
+            exit 1
+          fi
+          printf '即将上传的文件：\n'
+          printf ' - %s\n' "${assets[@]}"
+
+      - name: 创建 Release 并上传资产
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          assets=(dist/*.zip)
+          cat > release-notes.md <<'EOF'
+          自动发布包。
+
+          ## 包区别
+
+          ### MMDBridge_MMEffect_x64_v037_python313_fixed.zip
+          - 完整桥接包
+          - 同时保留 MMDBridge 与 MMEffect
+          - 包含 Python 运行时、MMEffect 运行时、桥接 DLL、导出脚本
+          - 适合完整使用链路
+
+          ### MMDBridge_x64_python313_only.zip
+          - MMDBridge 专用包
+          - 不附带 MMEffect 运行时
+          - 包含桥接 DLL、Python 运行时、导出脚本
+          - 适合只使用 MMDBridge 导出能力
+
+          ### MMEffect_x64_v037_bridge_only.zip
+          - MME 专用精简包
+          - 保留 MMEffect 运行链路
+          - 不附带 MMDBridge 导出脚本
+          - 适合只使用 MME，并保留当前桥接层增强
+
+          ## 上传文件
+          EOF
+          for asset in "${assets[@]}"; do
+            printf -- '- `%s`\n' "$(basename "$asset")" >> release-notes.md
+          done
+          gh release create "${{ steps.meta.outputs.tag }}" "${assets[@]}" \
+            --title "${{ steps.meta.outputs.title }}" \
+            --notes-file release-notes.md

@@ -1559,6 +1559,42 @@ namespace
 		item.dwTypeData = const_cast<LPSTR>("Open Effect Folder");
 		::InsertMenuItemA(edit_menu, ::GetMenuItemCount(edit_menu), TRUE, &item);
 	}
+
+	static void notify_mme_tab_changed(HWND tab)
+	{
+		if (!tab) return;
+		HWND dialog = ::GetParent(tab);
+		if (!dialog) return;
+
+		NMHDR hdr = {};
+		hdr.hwndFrom = tab;
+		hdr.idFrom = static_cast<UINT_PTR>(::GetDlgCtrlID(tab));
+		hdr.code = TCN_SELCHANGING;
+		::SendMessage(dialog, WM_NOTIFY, hdr.idFrom, reinterpret_cast<LPARAM>(&hdr));
+
+		hdr.code = TCN_SELCHANGE;
+		::SendMessage(dialog, WM_NOTIFY, hdr.idFrom, reinterpret_cast<LPARAM>(&hdr));
+	}
+
+	static bool switch_mme_tab_by_wheel(HWND tab, short delta)
+	{
+		if (!tab || delta == 0) return false;
+		const int count = TabCtrl_GetItemCount(tab);
+		if (count <= 1) return false;
+
+		int current = TabCtrl_GetCurSel(tab);
+		if (current < 0) current = 0;
+
+		const int direction = delta > 0 ? -1 : 1;
+		int next = current + direction;
+		if (next < 0) next = count - 1;
+		if (next >= count) next = 0;
+		if (next == current) return false;
+
+		TabCtrl_SetCurSel(tab, next);
+		notify_mme_tab_changed(tab);
+		return true;
+	}
 }
 
 HWND g_hWnd=NULL;	//ウィンドウハンドル
@@ -1568,6 +1604,8 @@ HMENU g_hLanguageMenu=NULL;
 HWND g_hFrame = NULL; //フレーム数
 HWND g_hMMEffectDialog = NULL;
 LONG_PTR g_originalMMEffectDialogWndProc = NULL;
+HWND g_hMMEffectTab = NULL;
+LONG_PTR g_originalMMEffectTabWndProc = NULL;
 
 
 static void GetFrame(HWND hWnd)
@@ -1648,6 +1686,7 @@ static BOOL CALLBACK enumMMEffectDialogProc(HWND hWnd, LPARAM lParam)
 }
 
 static LRESULT CALLBACK mm_effect_dialog_wnd_proc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp);
+static LRESULT CALLBACK mm_effect_tab_wnd_proc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp);
 
 static void setMyMenu()
 {
@@ -1716,6 +1755,8 @@ static void hookMMEffectDialog()
 	{
 		g_hMMEffectDialog = NULL;
 		g_originalMMEffectDialogWndProc = NULL;
+		g_hMMEffectTab = NULL;
+		g_originalMMEffectTabWndProc = NULL;
 	}
 
 	if (!g_hMMEffectDialog)
@@ -1732,6 +1773,23 @@ static void hookMMEffectDialog()
 	{
 		g_originalMMEffectDialogWndProc = ::GetWindowLongPtr(g_hMMEffectDialog, GWLP_WNDPROC);
 		::SetWindowLongPtr(g_hMMEffectDialog, GWLP_WNDPROC, reinterpret_cast<_LONG_PTR>(mm_effect_dialog_wnd_proc));
+	}
+
+	HWND tab = ::GetDlgItem(g_hMMEffectDialog, kMMETabControlId);
+	if (g_hMMEffectTab && !::IsWindow(g_hMMEffectTab))
+	{
+		g_hMMEffectTab = NULL;
+		g_originalMMEffectTabWndProc = NULL;
+	}
+	if (tab && tab != g_hMMEffectTab)
+	{
+		g_hMMEffectTab = tab;
+		g_originalMMEffectTabWndProc = NULL;
+	}
+	if (g_hMMEffectTab && !g_originalMMEffectTabWndProc)
+	{
+		g_originalMMEffectTabWndProc = ::GetWindowLongPtr(g_hMMEffectTab, GWLP_WNDPROC);
+		::SetWindowLongPtr(g_hMMEffectTab, GWLP_WNDPROC, reinterpret_cast<_LONG_PTR>(mm_effect_tab_wnd_proc));
 	}
 }
 
@@ -1892,6 +1950,32 @@ static LRESULT CALLBACK mm_effect_dialog_wnd_proc(HWND hWnd, UINT msg, WPARAM wp
 		{
 			g_hMMEffectDialog = NULL;
 			g_originalMMEffectDialogWndProc = NULL;
+			g_hMMEffectTab = NULL;
+			g_originalMMEffectTabWndProc = NULL;
+		}
+		break;
+	}
+	return original_wnd_proc
+		? CallWindowProc(reinterpret_cast<WNDPROC>(original_wnd_proc), hWnd, msg, wp, lp)
+		: DefWindowProc(hWnd, msg, wp, lp);
+}
+
+static LRESULT CALLBACK mm_effect_tab_wnd_proc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+	const LONG_PTR original_wnd_proc = g_originalMMEffectTabWndProc;
+	switch (msg)
+	{
+	case WM_MOUSEWHEEL:
+		if (switch_mme_tab_by_wheel(hWnd, GET_WHEEL_DELTA_WPARAM(wp)))
+		{
+			return 0;
+		}
+		break;
+	case WM_NCDESTROY:
+		if (g_hMMEffectTab == hWnd)
+		{
+			g_hMMEffectTab = NULL;
+			g_originalMMEffectTabWndProc = NULL;
 		}
 		break;
 	}
