@@ -89,6 +89,21 @@ object 路径主要来自：
 
 - 启用 `Open Effect Folder`
 
+### 3. MME 映射窗口新增模型绘制顺序调整
+
+在 `Effect Mapping` 窗口中，当前桥接层还新增：
+
+- `Move Model Earlier`
+- `Move Model Later`
+
+该功能通过当前选中行解析到对应 PMD / PMX 模型，然后交换 MMD 内部模型顺序字段。
+
+当前只支持模型，不支持 `.x` 附件。
+
+详细逆向记录和偏移说明见：
+
+- [MME_MODEL_ORDER.md](MME_MODEL_ORDER.md)
+
 ---
 
 ## 路径解析策略
@@ -142,6 +157,12 @@ object 路径主要来自：
 
 极端情况下，如果 object/effect 行文本与实际文件关系过于特殊，可能需要继续补规则。
 
+### 3. 模型顺序调整依赖特定 MMD 版本偏移
+
+当前模型绘制顺序调整功能绑定测试环境中的 `MikuMikudance.exe`。
+
+如果更换 MMD 主程序版本，需要重新定位内部结构偏移。
+
 ---
 
 ## 适合继续扩展的方向
@@ -153,6 +174,7 @@ object 路径主要来自：
 - object/effect 路径复制到剪贴板
 - effect 缺失检测
 - 常用 effect 目录快捷入口
+- `.x` 附件绘制顺序调整
 
 ---
 

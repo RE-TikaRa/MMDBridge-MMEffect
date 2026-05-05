@@ -11,4 +11,6 @@ This package includes:
 
 Notes:
 - No MMDBridge export scripts are included.
-- The MME mapping window includes object/effect folder shortcuts and tab mouse-wheel switching.
+- The MME Effect Mapping window includes object/effect folder shortcuts.
+- The MME Effect Mapping window includes Move Model Earlier / Move Model Later for model draw order.
+- The MME tab control supports mouse-wheel switching.

@@ -38,6 +38,8 @@ d3d9.dll        当前桥接前端
 - 已为 MME `Effect Mapping` 窗口新增右键：
   - `Open Object Folder`
   - `Open Effect Folder`
+  - `Move Model Earlier`
+  - `Move Model Later`
 - 已为 MME 上方分页页签新增：
   - 鼠标滚轮翻页
   - 首尾循环切换
@@ -62,6 +64,7 @@ d3d9.dll        当前桥接前端
 - 在不改原版 MME 二进制源码的前提下增强界面交互
 - 当前重点增强：
   - `Effect Mapping` 窗口右键快捷打开目录
+  - `Effect Mapping` 窗口调整模型绘制顺序
   - 多分页页签滚轮翻页
 
 ---
@@ -262,7 +265,8 @@ MMDBridge 当前只扫描：
 3. 菜单中是否还能看到 `MMEffect`
 4. 完整桥接包下，MMDBridge 设置窗口是否能扫描到脚本
 5. MME `Effect Mapping` 窗口右键是否出现新增项
-6. MME 上方分页页签是否能用鼠标滚轮切换
+6. MME `Effect Mapping` 窗口是否能对模型使用 `Move Model Earlier / Later`
+7. MME 上方分页页签是否能用鼠标滚轮切换
 
 ---
 
@@ -313,6 +317,7 @@ MMDBridge 当前只扫描：
 - [docs/BUILD.md](docs/BUILD.md)
 - [docs/PACKAGES.md](docs/PACKAGES.md)
 - [docs/MME_INTEGRATION.md](docs/MME_INTEGRATION.md)
+- [docs/MME_MODEL_ORDER.md](docs/MME_MODEL_ORDER.md)
 - [docs/LICENSES.md](docs/LICENSES.md)
 
 ---

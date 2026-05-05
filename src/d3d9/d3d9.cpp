@@ -1265,6 +1265,8 @@ namespace
 	static const UINT kMMETabControlId = 1002;
 	static const UINT kMMEMenuOpenObjectFolder = 49031;
 	static const UINT kMMEMenuOpenEffectFolder = 49032;
+	static const UINT kMMEMenuMoveModelEarlier = 49033;
+	static const UINT kMMEMenuMoveModelLater = 49034;
 
 	struct MMESelectionInfo
 	{
@@ -1272,6 +1274,7 @@ namespace
 		std::wstring effect_text;
 		std::wstring object_path;
 		std::wstring effect_path;
+		int pmd_index;
 	};
 
 	struct ObjectPathCandidate
@@ -1279,6 +1282,7 @@ namespace
 		std::wstring path;
 		std::wstring file_name;
 		std::wstring stem;
+		int index;
 	};
 
 	static std::wstring acp_to_wstring(const char* src)
@@ -1408,6 +1412,7 @@ namespace
 				candidate.path = path;
 				candidate.file_name = path_file_name_copy(path);
 				candidate.stem = path_stem_copy(path);
+				candidate.index = i;
 				candidates.push_back(candidate);
 			}
 		}
@@ -1420,6 +1425,26 @@ namespace
 				candidate.path = path;
 				candidate.file_name = path_file_name_copy(path);
 				candidate.stem = path_stem_copy(path);
+				candidate.index = i;
+				candidates.push_back(candidate);
+			}
+		}
+		return candidates;
+	}
+
+	static std::vector<ObjectPathCandidate> collect_pmd_path_candidates()
+	{
+		std::vector<ObjectPathCandidate> candidates;
+		for (int i = 0; i < ExpGetPmdNum(); ++i)
+		{
+			const std::wstring path = resolve_runtime_path(acp_to_wstring(ExpGetPmdFilename(i)));
+			if (!path.empty())
+			{
+				ObjectPathCandidate candidate = {};
+				candidate.path = path;
+				candidate.file_name = path_file_name_copy(path);
+				candidate.stem = path_stem_copy(path);
+				candidate.index = i;
 				candidates.push_back(candidate);
 			}
 		}
@@ -1458,6 +1483,101 @@ namespace
 			}
 		}
 		return best_path;
+	}
+
+	static int resolve_pmd_index_from_text(const std::wstring& object_text)
+	{
+		const std::wstring normalized = normalize_display_text(object_text);
+		if (normalized.empty()) return -1;
+
+		const std::wstring direct_path = resolve_runtime_path(normalized);
+		const std::vector<ObjectPathCandidate> candidates = collect_pmd_path_candidates();
+		int best_score = 0;
+		int best_index = -1;
+		for (size_t i = 0; i < candidates.size(); ++i)
+		{
+			if (!direct_path.empty() && ::_wcsicmp(direct_path.c_str(), candidates[i].path.c_str()) == 0)
+			{
+				return candidates[i].index;
+			}
+			const int score = score_object_path_candidate(normalized, candidates[i]);
+			if (score > best_score)
+			{
+				best_score = score;
+				best_index = candidates[i].index;
+			}
+		}
+		return best_index;
+	}
+
+	static BYTE* get_pmd_internal_order_field(int pmd_index)
+	{
+		if (pmd_index < 0) return NULL;
+
+		HMODULE module = ::GetModuleHandleW(NULL);
+		if (!module) return NULL;
+
+		BYTE* base = reinterpret_cast<BYTE*>(module);
+		BYTE* root = *reinterpret_cast<BYTE**>(base + 0x1445F8);
+		if (!root) return NULL;
+
+		BYTE** pmd_slots = reinterpret_cast<BYTE**>(root + 0xBE8);
+		int current = -1;
+		for (int i = 0; i < 0xFF; ++i)
+		{
+			if (pmd_slots[i])
+			{
+				++current;
+				if (current == pmd_index)
+				{
+					return pmd_slots[i] + 0x3108;
+				}
+			}
+		}
+		return NULL;
+	}
+
+	static int find_pmd_index_by_internal_order(BYTE order)
+	{
+		const int count = ExpGetPmdNum();
+		for (int i = 0; i < count; ++i)
+		{
+			BYTE* order_field = get_pmd_internal_order_field(i);
+			if (order_field && *order_field == order)
+			{
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	static bool can_move_pmd_internal_order(int pmd_index, int direction)
+	{
+		BYTE* order_field = get_pmd_internal_order_field(pmd_index);
+		if (!order_field) return false;
+
+		const int order = *order_field;
+		const int next_order = order + direction;
+		if (next_order < 0 || next_order >= ExpGetPmdNum()) return false;
+		return find_pmd_index_by_internal_order(static_cast<BYTE>(next_order)) >= 0;
+	}
+
+	static bool move_pmd_internal_order(int pmd_index, int direction)
+	{
+		BYTE* order_field = get_pmd_internal_order_field(pmd_index);
+		if (!order_field) return false;
+
+		const int next_order = *order_field + direction;
+		if (next_order < 0 || next_order >= ExpGetPmdNum()) return false;
+
+		const int other_index = find_pmd_index_by_internal_order(static_cast<BYTE>(next_order));
+		BYTE* other_order_field = get_pmd_internal_order_field(other_index);
+		if (!other_order_field) return false;
+
+		const BYTE old_order = *order_field;
+		*order_field = *other_order_field;
+		*other_order_field = old_order;
+		return true;
 	}
 
 	static std::wstring resolve_effect_path_from_text(const std::wstring& effect_text, const std::wstring& object_path)
@@ -1504,6 +1624,7 @@ namespace
 	static MMESelectionInfo get_mme_selection_info(HWND dialog)
 	{
 		MMESelectionInfo info = {};
+		info.pmd_index = -1;
 		HWND list_view = ::GetDlgItem(dialog, kMMEListViewId);
 		if (!list_view) return info;
 
@@ -1518,6 +1639,7 @@ namespace
 		info.effect_text = normalize_display_text(get_listview_item_text_w(list_view, item, 1));
 		info.object_path = resolve_object_path_from_text(info.object_text);
 		info.effect_path = resolve_effect_path_from_text(info.effect_text, info.object_path);
+		info.pmd_index = resolve_pmd_index_from_text(info.object_text);
 		return info;
 	}
 
@@ -1532,6 +1654,8 @@ namespace
 		const MMESelectionInfo info = get_mme_selection_info(dialog);
 		::EnableMenuItem(menu, kMMEMenuOpenObjectFolder, MF_BYCOMMAND | (info.object_path.empty() ? MF_GRAYED : MF_ENABLED));
 		::EnableMenuItem(menu, kMMEMenuOpenEffectFolder, MF_BYCOMMAND | (info.effect_path.empty() ? MF_GRAYED : MF_ENABLED));
+		::EnableMenuItem(menu, kMMEMenuMoveModelEarlier, MF_BYCOMMAND | (can_move_pmd_internal_order(info.pmd_index, -1) ? MF_ENABLED : MF_GRAYED));
+		::EnableMenuItem(menu, kMMEMenuMoveModelLater, MF_BYCOMMAND | (can_move_pmd_internal_order(info.pmd_index, 1) ? MF_ENABLED : MF_GRAYED));
 	}
 
 	static void ensure_mme_folder_menu_items(HMENU dialog_menu)
@@ -1557,6 +1681,24 @@ namespace
 
 		item.wID = kMMEMenuOpenEffectFolder;
 		item.dwTypeData = const_cast<LPSTR>("Open Effect Folder");
+		::InsertMenuItemA(edit_menu, ::GetMenuItemCount(edit_menu), TRUE, &item);
+
+		ZeroMemory(&item, sizeof(item));
+		item.cbSize = sizeof(item);
+		item.fMask = MIIM_FTYPE;
+		item.fType = MFT_SEPARATOR;
+		::InsertMenuItemA(edit_menu, ::GetMenuItemCount(edit_menu), TRUE, &item);
+
+		ZeroMemory(&item, sizeof(item));
+		item.cbSize = sizeof(item);
+		item.fMask = MIIM_ID | MIIM_FTYPE | MIIM_STRING;
+		item.fType = MFT_STRING;
+		item.wID = kMMEMenuMoveModelEarlier;
+		item.dwTypeData = const_cast<LPSTR>("Move Model Earlier");
+		::InsertMenuItemA(edit_menu, ::GetMenuItemCount(edit_menu), TRUE, &item);
+
+		item.wID = kMMEMenuMoveModelLater;
+		item.dwTypeData = const_cast<LPSTR>("Move Model Later");
 		::InsertMenuItemA(edit_menu, ::GetMenuItemCount(edit_menu), TRUE, &item);
 	}
 
@@ -1942,6 +2084,24 @@ static LRESULT CALLBACK mm_effect_dialog_wnd_proc(HWND hWnd, UINT msg, WPARAM wp
 				open_path_in_explorer(info.effect_path);
 			}
 			return 0;
+		}
+		case kMMEMenuMoveModelEarlier:
+		{
+			const MMESelectionInfo info = get_mme_selection_info(hWnd);
+			if (move_pmd_internal_order(info.pmd_index, -1))
+			{
+				return 0;
+			}
+			break;
+		}
+		case kMMEMenuMoveModelLater:
+		{
+			const MMESelectionInfo info = get_mme_selection_info(hWnd);
+			if (move_pmd_internal_order(info.pmd_index, 1))
+			{
+				return 0;
+			}
+			break;
 		}
 		}
 		break;

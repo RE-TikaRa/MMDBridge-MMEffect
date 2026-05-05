@@ -12,4 +12,6 @@ This package includes:
 
 Notes:
 - MMDBridge only scans *.py files placed beside MikuMikuDance.exe.
-- This package includes the current MME mapping window enhancements.
+- The MME Effect Mapping window includes object/effect folder shortcuts.
+- The MME Effect Mapping window includes Move Model Earlier / Move Model Later for model draw order.
+- The MME tab control supports mouse-wheel switching.
